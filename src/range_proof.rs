@@ -7,6 +7,7 @@ use curve25519_dalek::ristretto;
 use curve25519_dalek::traits::Identity;
 use curve25519_dalek::scalar::Scalar;
 use rand::OsRng;
+use random_oracle::RandomOracle;
 
 struct PolyDeg3(Scalar, Scalar, Scalar);
 
@@ -36,7 +37,7 @@ pub struct RangeProof {
 }
 
 impl RangeProof {
-    pub fn generate_proof(v: u64, n: usize) -> RangeProof {
+    pub fn generate_proof(v: u64, n: usize, verifier: &mut RandomOracle) -> RangeProof {
         let mut rng: OsRng = OsRng::new().unwrap();
         // useful for debugging:
         // let mut rng: StdRng = StdRng::from_seed(&[1, 2, 3, 4]);
@@ -53,26 +54,31 @@ impl RangeProof {
         let a_blinding = Scalar::random(&mut rng);
         let mut A = B_blinding * a_blinding;
         for i in 0..n {
-            let v_i = (v >> i) & 1;
-            if v_i == 0 {
+            // if bit at index i is 1, then a_L is 1 and a_R is 0, so we add G[i]
+            // otherwise, a_L is 0 and a_R is -1, so we subtract H[i]
+            let bit = (v >> i) & 1;
+            if bit == 0 {
                 A -= H[i];
             } else {
                 A += G[i];
             }
         }
+        let A = A; // done computing A, make immutable
 
         // Compute S (line 43-45)
-        let points_iter = iter::once(B_blinding).chain(G.iter()).chain(H.iter());
-        let randomness: Vec<_> = (0..(1 + 2 * n)).map(|_| Scalar::random(&mut rng)).collect();
-        let S = ristretto::multiscalar_mult(&randomness, points_iter);
-
-        // Save/label randomness to be used later (in the paper: rho, s_L, s_R)
-        let s_blinding = &randomness[0];
-        let s_a = &randomness[1..(n + 1)];
-        let s_b = &randomness[(n + 1)..(1 + 2 * n)];
+        let s_blinding = Scalar::random(&mut rng);
+        let s_l:Vec<Scalar> = (0..n).map(|_| Scalar::random(&mut rng)).collect();
+        let s_r:Vec<Scalar> = (0..n).map(|_| Scalar::random(&mut rng)).collect();
+        let S = ristretto::multiscalar_mult(
+            iter::once(&s_blinding).chain(s_l.iter()).chain(s_r.iter()),
+            iter::once(B_blinding).chain(G.iter()).chain(H.iter()));
 
         // Generate y, z by committing to A, S (line 46-48)
-        let (y, z) = commit(&A, &S);
+        verifier.commit(A.compress().as_bytes());
+        verifier.commit(S.compress().as_bytes());
+        let y = verifier.challenge_scalar();
+        let z = verifier.challenge_scalar();
+        // let (y, z) = commit(&A, &S);
 
         // Calculate t by calculating vectors l0, l1, r0, r1 and multiplying
         let mut l = VecPoly2::new(n);
@@ -84,9 +90,9 @@ impl RangeProof {
         for i in 0..n {
             let v_i = (v >> i) & 1;
             l.0[i] -= z;
-            l.1[i] += s_a[i];
+            l.1[i] += s_l[i];
             r.0[i] += exp_y * z + z2 * exp_2;
-            r.1[i] += exp_y * s_b[i];
+            r.1[i] += exp_y * s_r[i];
             if v_i == 0 {
                 r.0[i] -= exp_y;
             } else {

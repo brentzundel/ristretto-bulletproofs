@@ -16,3 +16,7 @@ hex = "^0.3"
 [features]
 yolocrypto = ["curve25519-dalek/yolocrypto"]
 std = ["curve25519-dalek/std"]
+
+
+[patch.crates-io]
+curve25519-dalek = { git = 'https://github.com/dalek-cryptography/curve25519-dalek', branch = 'develop' }

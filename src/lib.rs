@@ -12,6 +12,8 @@ extern crate tiny_keccak;
 #[cfg(test)]
 extern crate test;
 
+mod util;
+
 pub mod proof_transcript;
 mod range_proof;
 mod inner_product_proof;

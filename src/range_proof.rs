@@ -115,6 +115,34 @@ impl RangeProof {
         let e_blinding = a_blinding + s_blinding * x;
         let t_hat = t.0 + t.1 * x + t.2 * x * x;
 
+        {
+            // Computation of delta from verifier code:
+
+            let z2 = z * z;
+            let z3 = z2 * z;
+            let mut power_g = Scalar::zero();
+            let mut exp_y = Scalar::one(); // start at y^0 = 1
+            let mut exp_2 = Scalar::one(); // start at 2^0 = 1
+            for _ in 0..n {
+                power_g += (z - z2) * exp_y - z3 * exp_2;
+
+                exp_y = exp_y * y; // y^i -> y^(i+1)
+                exp_2 = exp_2 + exp_2; // 2^i -> 2^(i+1)
+            }
+
+            let delta = power_g;
+            
+            assert_eq!(
+                t.0,
+                (z*z)*Scalar::from_u64(v) + delta,
+            );
+
+            assert_eq!(
+                t_hat,
+                (z*z)*Scalar::from_u64(v) + delta + x*t.1 + x*x*t.2,
+            );
+        }
+
         // Calculate l, r - which is only necessary if not doing IPP (line 55-57)
         // Adding this in a seperate loop so we can remove it easily later
         let l_total = l.eval(x);

@@ -77,19 +77,19 @@ impl Proof {
             let (G_L, G_R) = G.split_at_mut(n);
             let (H_L, H_R) = H.split_at_mut(n);
 
-            // let (L,R) = rayon::join(|| {
+            let (L,R) = rayon::join(|| {
                 let c_L = util::inner_product(&a_L, &b_R);
-                let L = ristretto::vartime::multiscalar_mul(
+                ristretto::vartime::multiscalar_mul(
                     a_L.iter().chain(b_R.iter()).chain(iter::once(&c_L)),
                     G_R.iter().chain(H_L.iter()).chain(iter::once(Q)),
-                );
-            // }, || {
+                )
+            }, || {
                 let c_R = util::inner_product(&a_R, &b_L);
-                let R = ristretto::vartime::multiscalar_mul(
+                ristretto::vartime::multiscalar_mul(
                     a_R.iter().chain(b_L.iter()).chain(iter::once(&c_R)),
                     G_L.iter().chain(H_R.iter()).chain(iter::once(Q)),
-                );
-            // });
+                )
+            });
 
             L_vec.push(L);
             R_vec.push(R);

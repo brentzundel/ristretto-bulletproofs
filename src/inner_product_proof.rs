@@ -77,19 +77,19 @@ impl Proof {
             let (G_L, G_R) = G.split_at_mut(n);
             let (H_L, H_R) = H.split_at_mut(n);
 
-            let (L,R) = rayon::join(|| {
+            // let (L,R) = rayon::join(|| {
                 let c_L = util::inner_product(&a_L, &b_R);
-                ristretto::vartime::multiscalar_mul(
+                let L = ristretto::vartime::multiscalar_mul(
                     a_L.iter().chain(b_R.iter()).chain(iter::once(&c_L)),
                     G_R.iter().chain(H_L.iter()).chain(iter::once(Q)),
-                )
-            }, || {
+                );
+            // }, || {
                 let c_R = util::inner_product(&a_R, &b_L);
-                ristretto::vartime::multiscalar_mul(
+                let R = ristretto::vartime::multiscalar_mul(
                     a_R.iter().chain(b_L.iter()).chain(iter::once(&c_R)),
                     G_L.iter().chain(H_R.iter()).chain(iter::once(Q)),
-                )
-            });
+                );
+            // });
 
             L_vec.push(L);
             R_vec.push(R);
@@ -103,20 +103,22 @@ impl Proof {
             for i in 0..n {
                 a_L[i] = a_L[i] * x + x_inv * a_R[i];
                 b_L[i] = b_L[i] * x_inv + x * b_R[i];
+                G_L[i] = ristretto::vartime::multiscalar_mul(&[x_inv, x], &[G_L[i], G_R[i]]);
+                H_L[i] = ristretto::vartime::multiscalar_mul(&[x, x_inv], &[H_L[i], H_R[i]]);
             }
-            // Parallelized calculation of each index of the vectors G and H.
-            // G_L[i] = G_L[i] * x_inv + G_R[i] * x (for all i)
-            G_L.par_iter_mut().zip(G_R.par_iter())
-                .for_each(|(G_L_i, G_R_i)| {
-                    *G_L_i = ristretto::vartime::multiscalar_mul(&[x_inv, x], &[*G_L_i, *G_R_i]);
-                    }
-                );
-            // H_L[i] = H_L[i] * x + H_R[i] * x_inv (for all i)
-            H_L.par_iter_mut().zip(H_R.par_iter())
-                .for_each(|(H_L_i, H_R_i)| {
-                    *H_L_i = ristretto::vartime::multiscalar_mul(&[x, x_inv], &[*H_L_i, *H_R_i]);
-                    }
-                );
+            // // Parallelized calculation of each index of the vectors G and H.
+            // // G_L[i] = G_L[i] * x_inv + G_R[i] * x (for all i)
+            // G_L.par_iter_mut().zip(G_R.par_iter())
+            //     .for_each(|(G_L_i, G_R_i)| {
+            //         *G_L_i = ristretto::vartime::multiscalar_mul(&[x_inv, x], &[*G_L_i, *G_R_i]);
+            //         }
+            //     );
+            // // H_L[i] = H_L[i] * x + H_R[i] * x_inv (for all i)
+            // H_L.par_iter_mut().zip(H_R.par_iter())
+            //     .for_each(|(H_L_i, H_R_i)| {
+            //         *H_L_i = ristretto::vartime::multiscalar_mul(&[x, x_inv], &[*H_L_i, *H_R_i]);
+            //         }
+            //     );
 
             a = a_L;
             b = b_L;

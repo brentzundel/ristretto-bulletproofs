@@ -17,9 +17,6 @@ use ristretto_bulletproofs::RangeProof;
 extern crate rayon;
 
 fn bench_create_helper(n: usize, c: &mut Criterion) {
-    /// XXX force init of the thread pool for Rayon to see if it changes anything
-    rayon::ThreadPoolBuilder::new().num_threads(6).build_global();
-
     c.bench_function(&format!("create_rangeproof_n_{}", n), move |b| {
         let generators = Generators::new(PedersenGenerators::default(), n, 1);
         let mut rng = OsRng::new().unwrap();

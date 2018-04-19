@@ -59,7 +59,6 @@ mod tests {
             .receive_shares(
                 &proof_shares,
                 &generators.all(),
-                value_challenge.y,
                 &mut transcript,
             )
             .unwrap()

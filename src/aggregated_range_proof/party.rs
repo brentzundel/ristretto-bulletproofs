@@ -160,7 +160,7 @@ impl<'a> PartyAwaitingValueChallenge<'a> {
         let poly_commitment = PolyCommitment { T_1, T_2 };
 
         let papc = PartyAwaitingPolyChallenge {
-            value_commitment: self.value_commitment.clone(), //TODO: remove clone
+            value_commitment: self.value_commitment,
             poly_commitment: poly_commitment.clone(),
             z: vc.z,
             offset_z,
@@ -211,7 +211,7 @@ impl PartyAwaitingPolyChallenge {
 
         ProofShare {
             value_commitment: self.value_commitment.clone(),
-            poly_commitment: self.poly_commitment.clone(), // TODO: remove clone
+            poly_commitment: self.poly_commitment,
             t_x_blinding,
             t_x,
             e_blinding,

@@ -16,6 +16,7 @@ pub struct ValueCommitment {
     pub S: RistrettoPoint,
 }
 
+#[derive(Debug, Clone)]
 pub struct ValueChallenge {
     pub y: Scalar,
     pub z: Scalar,
@@ -27,6 +28,7 @@ pub struct PolyCommitment {
     pub T_2: RistrettoPoint,
 }
 
+#[derive(Debug, Clone)]
 pub struct PolyChallenge {
     pub x: Scalar,
 }
@@ -42,6 +44,16 @@ pub struct ProofShare {
 
     pub l_vec: Vec<Scalar>,
     pub r_vec: Vec<Scalar>,
+}
+
+impl ProofShare {
+    pub fn verify_share(
+        &self,
+        value_challenge: &ValueChallenge,
+        poly_challenge: &PolyChallenge,
+    ) -> Result<(), ()> {
+        Ok(())
+    }
 }
 
 pub struct Proof {

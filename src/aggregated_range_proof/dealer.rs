@@ -15,9 +15,9 @@ pub struct Dealer {}
 impl Dealer {
     /// Creates a new dealer with the given parties and a number of bits
     pub fn new(
-        transcript: &mut ProofTranscript,
         n: usize,
         m: usize,
+        transcript: &mut ProofTranscript,
     ) -> Result<DealerAwaitingValues, &'static str> {
         transcript.commit_u64(n as u64);
         transcript.commit_u64(m as u64);
@@ -26,6 +26,7 @@ impl Dealer {
 }
 
 /// When the dealer is initialized, it only knows the size of the set.
+#[derive(Debug)]
 pub struct DealerAwaitingValues {
     n: usize,
     m: usize,
@@ -35,14 +36,20 @@ impl DealerAwaitingValues {
     /// Combines commitments and computes challenge variables.
     pub fn receive_value_commitments(
         self,
+        value_commitments: &Vec<ValueCommitment>,
         transcript: &mut ProofTranscript,
-        vc: &Vec<ValueCommitment>,
-    ) -> (DealerAwaitingPoly, ValueChallenge) {
-        // TODO: test that vc is length `m`.
+    ) -> Result<(DealerAwaitingPoly, ValueChallenge), (DealerAwaitingValues, &'static str)> {
+        if self.m != value_commitments.len() {
+            return Err((
+                self,
+                "Length of value commitments doesn't match expected length m",
+            ));
+        }
+
         let mut A = RistrettoPoint::identity();
         let mut S = RistrettoPoint::identity();
 
-        for commitment in vc.iter() {
+        for commitment in value_commitments.iter() {
             // Commit each V individually
             transcript.commit(commitment.V.compress().as_bytes());
 
@@ -57,20 +64,35 @@ impl DealerAwaitingValues {
         let y = transcript.challenge_scalar();
         let z = transcript.challenge_scalar();
 
-        (DealerAwaitingPoly { n: self.n }, ValueChallenge { y, z })
+        Ok((
+            DealerAwaitingPoly {
+                n: self.n,
+                m: self.m,
+            },
+            ValueChallenge { y, z },
+        ))
     }
 }
 
+#[derive(Debug)]
 pub struct DealerAwaitingPoly {
     n: usize,
+    m: usize,
 }
 
 impl DealerAwaitingPoly {
     pub fn receive_poly_commitments(
         self,
-        transcript: &mut ProofTranscript,
         poly_commitments: &Vec<PolyCommitment>,
-    ) -> (DealerAwaitingShares, PolyChallenge) {
+        transcript: &mut ProofTranscript,
+    ) -> Result<(DealerAwaitingShares, PolyChallenge), (DealerAwaitingPoly, &'static str)> {
+        if self.m != poly_commitments.len() {
+            return Err((
+                self,
+                "Length of poly commitments doesn't match expected length m",
+            ));
+        }
+
         // Commit sums of T1s and T2s.
         let mut T1 = RistrettoPoint::identity();
         let mut T2 = RistrettoPoint::identity();
@@ -83,22 +105,37 @@ impl DealerAwaitingPoly {
 
         let x = transcript.challenge_scalar();
 
-        (DealerAwaitingShares { n: self.n }, PolyChallenge { x })
+        Ok((
+            DealerAwaitingShares {
+                n: self.n,
+                m: self.m,
+            },
+            PolyChallenge { x },
+        ))
     }
 }
 
+#[derive(Debug)]
 pub struct DealerAwaitingShares {
     n: usize,
+    m: usize,
 }
 
 impl DealerAwaitingShares {
     pub fn receive_shares(
         self,
-        transcript: &mut ProofTranscript,
         proof_shares: &Vec<ProofShare>,
         gen: &GeneratorsView,
         y: Scalar,
-    ) -> Proof {
+        transcript: &mut ProofTranscript,
+    ) -> Result<Proof, (DealerAwaitingShares, &'static str)> {
+        if self.m != proof_shares.len() {
+            return Err((
+                self,
+                "Length of proof shares doesn't match expected length m",
+            ));
+        }
+
         let value_commitments = proof_shares
             .iter()
             .map(|ps| ps.value_commitment.V.clone())
@@ -158,7 +195,7 @@ impl DealerAwaitingShares {
             r_vec.clone(),
         );
 
-        Proof {
+        Ok(Proof {
             n: self.n,
             value_commitments,
             A,
@@ -169,6 +206,6 @@ impl DealerAwaitingShares {
             t_x_blinding,
             e_blinding,
             ipp_proof,
-        }
+        })
     }
 }
